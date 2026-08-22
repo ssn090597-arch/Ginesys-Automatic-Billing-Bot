@@ -23,7 +23,7 @@
         .header-title h1 { font-size: 22px; font-weight: 700; color: var(--secondary); }
         .header-title p { font-size: 13px; color: var(--text-muted); }
         .action-buttons { display: flex; gap: 12px; }
-        .btn { padding: 10px 18px; border-radius: 8px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn { padding: 10px 18px; border-radius: 8px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
         .btn-primary { background-color: var(--primary); color: white; }
         .btn-outline { background-color: white; border: 1px solid var(--border-color); color: var(--text-dark); }
         .container { padding: 32px; display: flex; flex-direction: column; gap: 28px; }
@@ -70,19 +70,19 @@
                 <p>Manage Picklists, Invoices & Live Ginesys Data</p>
             </div>
             <div class="action-buttons">
-                <button class="btn btn-outline" onclick="alert('Syncing Ginesys Data...')"><i class="fa-solid fa-rotate"></i> Sync Ginesys</button>
-                <button class="btn btn-primary" onclick="alert('Creating All Pick Lists...')"><i class="fa-solid fa-wand-magic-sparkles"></i> Create All Pick Lists</button>
+                <button class="btn btn-outline" onclick="fetchLiveData()"><i class="fa-solid fa-rotate"></i> Sync Ginesys</button>
+                <button class="btn btn-primary" onclick="alert('Bot Action Triggered!')"><i class="fa-solid fa-wand-magic-sparkles"></i> Create All Pick Lists</button>
             </div>
         </div>
 
         <div class="container">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-info"><h3>133</h3><p>Pending E-com Orders</p></div>
+                    <div class="stat-info"><h3 id="pending-count">0</h3><p>Pending E-com Orders</p></div>
                     <div class="stat-icon"><i class="fa-solid fa-cart-flatbed"></i></div>
                 </div>
                 <div class="stat-card" style="border-left-color: #2b9348;">
-                    <div class="stat-info"><h3>24</h3><p>Pick Lists Ready</p></div>
+                    <div class="stat-info"><h3 id="ready-count">0</h3><p>Pick Lists Ready</p></div>
                     <div class="stat-icon" style="background:#e8f5e9; color:#2b9348;"><i class="fa-solid fa-clipboard-check"></i></div>
                 </div>
             </div>
@@ -97,16 +97,9 @@
                             <th>Batch ID</th><th>Channel</th><th>Items</th><th>Status</th><th style="text-align: right;">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="picklist-rows">
                         <tr>
-                            <td><b>#PK-88392</b></td><td>Lino Perros Web</td><td>45 Items</td>
-                            <td><span class="badge badge-ready">Ready</span></td>
-                            <td style="text-align: right;"><button class="btn btn-primary" onclick="alert('Downloading Picklist PDF...')"><i class="fa-solid fa-download"></i> Download PDF</button></td>
-                        </tr>
-                        <tr>
-                            <td><b>#PK-88393</b></td><td>Amazon India</td><td>38 Items</td>
-                            <td><span class="badge badge-pending">Pending</span></td>
-                            <td style="text-align: right;"><button class="btn btn-outline" onclick="alert('Generating Picklist on Ginesys...')"><i class="fa-solid fa-gear"></i> Generate</button></td>
+                            <td colspan="5" style="text-align: center; color: var(--text-muted);">Fetching live data from bot...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -114,5 +107,45 @@
         </div>
     </div>
 
+    <script>
+        async function fetchLiveData() {
+            try {
+                // Prevent browser caching using timestamp
+                const response = await fetch('data.json?v=' + new Date().getTime());
+                const data = await response.json();
+
+                document.getElementById('pending-count').innerText = data.pending_count;
+                document.getElementById('ready-count').innerText = data.ready_count;
+
+                const tableBody = document.getElementById('picklist-rows');
+                tableBody.innerHTML = '';
+
+                data.picklists.forEach(item => {
+                    const row = document.createElement('tr');
+                    
+                    let actionButton = '';
+                    if (item.status === 'Ready' && item.pdf_file) {
+                        actionButton = `<a href="${item.pdf_file}" download class="btn btn-primary"><i class="fa-solid fa-download"></i> Download PDF</a>`;
+                    } else {
+                        actionButton = `<button class="btn btn-outline" disabled><i class="fa-solid fa-gear"></i> Processing</button>`;
+                    }
+
+                    row.innerHTML = `
+                        <td><b>${item.batch_id}</b></td>
+                        <td>${item.channel}</td>
+                        <td>${item.items}</td>
+                        <td><span class="badge ${item.status === 'Ready' ? 'badge-ready' : 'badge-pending'}">${item.status}</span></td>
+                        <td style="text-align: right;">${actionButton}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Data JSON file not ready yet:', error);
+            }
+        }
+
+        // Auto load on page launch
+        window.onload = fetchLiveData;
+    </script>
 </body>
 </html>
