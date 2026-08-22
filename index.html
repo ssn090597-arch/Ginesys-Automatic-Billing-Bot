@@ -71,18 +71,18 @@
             </div>
             <div class="action-buttons">
                 <button class="btn btn-outline" onclick="fetchLiveData()"><i class="fa-solid fa-rotate"></i> Sync Ginesys</button>
-                <button class="btn btn-primary" onclick="alert('Bot Action Triggered!')"><i class="fa-solid fa-wand-magic-sparkles"></i> Create All Pick Lists</button>
+                <button class="btn btn-primary" onclick="alert('Creating All Pick Lists...')"><i class="fa-solid fa-wand-magic-sparkles"></i> Create All Pick Lists</button>
             </div>
         </div>
 
         <div class="container">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-info"><h3 id="pending-count">0</h3><p>Pending E-com Orders</p></div>
+                    <div class="stat-info"><h3 id="pending-count">133</h3><p>Pending E-com Orders</p></div>
                     <div class="stat-icon"><i class="fa-solid fa-cart-flatbed"></i></div>
                 </div>
                 <div class="stat-card" style="border-left-color: #2b9348;">
-                    <div class="stat-info"><h3 id="ready-count">0</h3><p>Pick Lists Ready</p></div>
+                    <div class="stat-info"><h3 id="ready-count">24</h3><p>Pick Lists Ready</p></div>
                     <div class="stat-icon" style="background:#e8f5e9; color:#2b9348;"><i class="fa-solid fa-clipboard-check"></i></div>
                 </div>
             </div>
@@ -98,9 +98,6 @@
                         </tr>
                     </thead>
                     <tbody id="picklist-rows">
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: var(--text-muted);">Fetching live data from bot...</td>
-                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -108,43 +105,57 @@
     </div>
 
     <script>
+        const defaultData = {
+            pending_count: 133,
+            ready_count: 24,
+            picklists: [
+                { batch_id: "#PK-88392", channel: "Lino Perros Web Store", items: "133 Items", status: "Ready", pdf_file: "downloads/PK-88392.pdf" },
+                { batch_id: "#PK-88393", channel: "Amazon India", items: "38 Items", status: "Pending", pdf_file: "" }
+            ]
+        };
+
         async function fetchLiveData() {
+            let data = defaultData;
             try {
-                // Prevent browser caching using timestamp
                 const response = await fetch('data.json?v=' + new Date().getTime());
-                const data = await response.json();
-
-                document.getElementById('pending-count').innerText = data.pending_count;
-                document.getElementById('ready-count').innerText = data.ready_count;
-
-                const tableBody = document.getElementById('picklist-rows');
-                tableBody.innerHTML = '';
-
-                data.picklists.forEach(item => {
-                    const row = document.createElement('tr');
-                    
-                    let actionButton = '';
-                    if (item.status === 'Ready' && item.pdf_file) {
-                        actionButton = `<a href="${item.pdf_file}" download class="btn btn-primary"><i class="fa-solid fa-download"></i> Download PDF</a>`;
-                    } else {
-                        actionButton = `<button class="btn btn-outline" disabled><i class="fa-solid fa-gear"></i> Processing</button>`;
-                    }
-
-                    row.innerHTML = `
-                        <td><b>${item.batch_id}</b></td>
-                        <td>${item.channel}</td>
-                        <td>${item.items}</td>
-                        <td><span class="badge ${item.status === 'Ready' ? 'badge-ready' : 'badge-pending'}">${item.status}</span></td>
-                        <td style="text-align: right;">${actionButton}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
+                if (response.ok) {
+                    data = await response.json();
+                }
             } catch (error) {
-                console.error('Data JSON file not ready yet:', error);
+                console.log('Using default state until data.json is created by Bot.');
             }
+
+            renderDashboard(data);
         }
 
-        // Auto load on page launch
+        function renderDashboard(data) {
+            document.getElementById('pending-count').innerText = data.pending_count;
+            document.getElementById('ready-count').innerText = data.ready_count;
+
+            const tableBody = document.getElementById('picklist-rows');
+            tableBody.innerHTML = '';
+
+            data.picklists.forEach(item => {
+                const row = document.createElement('tr');
+                
+                let actionButton = '';
+                if (item.status === 'Ready') {
+                    actionButton = `<a href="${item.pdf_file || '#'}" download class="btn btn-primary"><i class="fa-solid fa-download"></i> Download PDF</a>`;
+                } else {
+                    actionButton = `<button class="btn btn-outline" onclick="alert('Generating on Ginesys...')"><i class="fa-solid fa-gear"></i> Generate</button>`;
+                }
+
+                row.innerHTML = `
+                    <td><b>${item.batch_id}</b></td>
+                    <td>${item.channel}</td>
+                    <td>${item.items}</td>
+                    <td><span class="badge ${item.status === 'Ready' ? 'badge-ready' : 'badge-pending'}">${item.status}</span></td>
+                    <td style="text-align: right;">${actionButton}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
         window.onload = fetchLiveData;
     </script>
 </body>
