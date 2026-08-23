@@ -1,40 +1,42 @@
-name: Run Ginesys Bot Workflow
+import sys
+from playwright.sync_api import sync_playwright
 
-on:
-  repository_dispatch:
-    types: [run-ginesys-step]
-  workflow_dispatch:
-  schedule:
-    - cron: '0 * * * *'
+def download_ginesys_report():
+    with sync_playwright() as p:
+        # 1. Chromium Browser Start
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(accept_downloads=True)
+        page = context.new_page()
 
-jobs:
-  run-bot:
-    runs-on: ubuntu-latest
+        print("Navigating to Ginesys Reports Portal...")
+        page.goto("https://erpreports.ginesys.cloud/Home/index.aspx")
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+        # 2. Search for the specific report
+        page.wait_for_selector("input[placeholder*='Search Report Names']")
+        search_input = page.locator("input[placeholder*='Search Report Names']")
+        search_input.fill("deli")
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(2000)
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+        # 3. Locate 'Delivery challan pending bo...' Report
+        report_item = page.locator("text=Delivery challan pending bo...").first
+        report_item.click(button="right")  # Right click to open menu
+        page.wait_for_timeout(1000)
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install playwright pandas openpyxl
-          playwright install chromium
-          playwright install-deps
+        # 4. Hover on 'Export As' and Click 'Excel'
+        page.locator("text=Export As").hover()
+        page.wait_for_timeout(500)
 
-      - name: Run Ginesys Bot Script
-        run: |
-          python bot.py ${{ github.event.client_payload.step || 'step2' }}
+        # Handle file download
+        with page.expect_download() as download_info:
+            page.locator("text=Excel").click()
+        
+        download = download_info.value
+        # Save fresh file directly as billing_data.xlsx
+        download.save_as("billing_data.xlsx")
+        print("Fresh Ginesys Report downloaded and updated successfully!")
 
-      - name: Commit and Push Generated Files
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add billing_data.xlsx downloads/ data.json || true
-          git commit -m "Auto generated Ginesys files & reports" || exit 0
-          git push
+        browser.close()
+
+if __name__ == "__main__":
+    download_ginesys_report()
